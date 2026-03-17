@@ -95,3 +95,60 @@ resource "aws_lambda_permission" "allow_bedrock_to_invoke_lambda" {
   principal     = "bedrock.amazonaws.com"
   source_arn    = module.repo_scanner_agent.agent_arn
 }
+# -----------------------------------------------
+# ASSIGNMENT: Data Intelligence Platform
+# Labs 1 and 2 Correlation
+# -----------------------------------------------
+
+data "archive_file" "repo_intelligence_scanner_zip" {
+  type        = "zip"
+  source_dir  = "${path.root}/src/repo_intelligence_scanner"
+  output_path = "${path.root}/dist/repo_intelligence_scanner.zip"
+}
+
+resource "aws_lambda_function" "repo_intelligence_scanner_lambda" {
+  function_name    = "RepoIntelligenceScannerTool"
+  role             = module.lambda_execution_role.role_arn
+  filename         = data.archive_file.repo_intelligence_scanner_zip.output_path
+  handler          = "lambda_function.handler"
+  runtime          = "python3.11"
+  timeout          = 60
+  source_code_hash = data.archive_file.repo_intelligence_scanner_zip.output_base64sha256
+  layers           = ["arn:aws:lambda:us-east-1:553035198032:layer:git-lambda2:8"]
+}
+
+module "repo_intelligence_agent" {
+  source                  = "./modules/bedrock_agent"
+  agent_name              = "Repo_Intelligence_Agent"
+  agent_resource_role_arn = module.bedrock_agent_role.role_arn
+  foundation_model        = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+  instruction             = "You are a repository intelligence analyst specializing in data engineering assessment. Your job is to use the scan_repo tool to perform a deep analysis of a public GitHub repository. When a user provides a GitHub URL, scan it and provide a structured summary covering: the technology stack, data engineering relevance, project maturity assessment based on the maturity score, CI/CD and testing signals, and any detected data engineering frameworks or tools."
+}
+
+resource "aws_bedrockagent_agent_action_group" "repo_intelligence_action_group" {
+  agent_id           = module.repo_intelligence_agent.agent_id
+  agent_version      = "DRAFT"
+  action_group_name  = "ScanRepoAction"
+  action_group_state = "ENABLED"
+
+  action_group_executor {
+    lambda = aws_lambda_function.repo_intelligence_scanner_lambda.arn
+  }
+
+  api_schema {
+    payload = file("${path.root}/repo_intelligence_schema.json")
+  }
+}
+
+resource "aws_lambda_permission" "allow_bedrock_to_invoke_intelligence_lambda" {
+  statement_id  = "AllowBedrockToInvokeIntelligenceLambda"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.repo_intelligence_scanner_lambda.function_name
+  principal     = "bedrock.amazonaws.com"
+  source_arn    = module.repo_intelligence_agent.agent_arn
+}
+
+output "intelligence_agent_id" {
+  description = "The ID of the Repo Intelligence Agent."
+  value       = module.repo_intelligence_agent.agent_id
+}

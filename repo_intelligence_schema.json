@@ -1,0 +1,69 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Repository Intelligence Scanner",
+    "version": "2.0.0",
+    "description": "API for performing structured data intelligence analysis on a Git repository."
+  },
+  "paths": {
+    "scan-repo": {
+      "post": {
+        "summary": "Performs a deep intelligence scan of a public Git repository.",
+        "description": "This tool clones a public GitHub repository and returns structured intelligence including file inventory, technology categorization, data engineering technology detection, project maturity scoring, CI/CD pipeline detection, and test coverage signals. Use this when you need to analyze the technical composition and data engineering relevance of a repository.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "repo_url": {
+                    "type": "string",
+                    "description": "The full URL of the public GitHub repository to scan."
+                  }
+                },
+                "required": ["repo_url"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Structured repository intelligence data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "files": {
+                      "type": "array",
+                      "items": { "type": "string" }
+                    },
+                    "total_file_count": { "type": "integer" },
+                    "extension_breakdown": { "type": "object" },
+                    "category_breakdown": { "type": "object" },
+                    "top_level_directories": {
+                      "type": "array",
+                      "items": { "type": "string" }
+                    },
+                    "max_directory_depth": { "type": "integer" },
+                    "has_ci_cd_pipeline": { "type": "boolean" },
+                    "has_tests": { "type": "boolean" },
+                    "has_documentation": { "type": "boolean" },
+                    "detected_de_technologies": {
+                      "type": "array",
+                      "items": { "type": "string" }
+                    },
+                    "project_maturity_score": { "type": "integer" },
+                    "maturity_out_of": { "type": "integer" },
+                    "repo_url": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
