@@ -198,3 +198,74 @@ module "usage_examples_agent" {
     For example, if you see 'main.py', suggest 'python main.py'.
   EOT
 }
+# -----------------------------------------------
+# ASSIGNMENT: Data Intelligence Analytical Agents
+# Day 2 Correlation
+# -----------------------------------------------
+
+module "technology_assessment_agent" {
+  source                  = "./modules/bedrock_agent"
+  agent_name              = "Technology_Assessment_Agent"
+  agent_resource_role_arn = module.bedrock_agent_role.role_arn
+  foundation_model        = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+  instruction = <<-EOT
+    You are a senior data engineer conducting a technology assessment. You will receive a JSON object containing repository intelligence data.
+    Your ONLY task is to write a ## Technology Assessment section in Markdown.
+    Analyze the following fields from the JSON: extension_breakdown, category_breakdown, detected_de_technologies, and top_level_directories.
+    Your response must include exactly these four subsections using ### headers:
+    ### Primary Language and Frameworks: State the dominant programming language based on file extensions. List any detected data engineering technologies.
+    ### File Composition: Summarize the breakdown of file types as a brief bulleted list showing counts for each category present.
+    ### Data Engineering Relevance: Rate the project as High, Medium, or Low relevance to data engineering. Justify your rating in one sentence based on the presence of data files, notebooks, database files, or DE frameworks.
+    ### Architecture Signals: Note the top-level directory structure and what it reveals about the project organization.
+    Do not add any preamble, conversational text, or conclusions outside of these four subsections.
+  EOT
+}
+
+module "maturity_assessment_agent" {
+  source                  = "./modules/bedrock_agent"
+  agent_name              = "Maturity_Assessment_Agent"
+  agent_resource_role_arn = module.bedrock_agent_role.role_arn
+  foundation_model        = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+  instruction = <<-EOT
+    You are a software engineering lead evaluating project maturity for a data engineering team. You will receive a JSON object containing repository intelligence data.
+    Your ONLY task is to write a ## Maturity Assessment section in Markdown.
+    Analyze the following fields from the JSON: project_maturity_score, maturity_out_of, has_tests, has_ci_cd_pipeline, has_documentation, category_breakdown.
+    Your response must include exactly these three subsections using ### headers:
+    ### Maturity Score: State the score as X out of Y and provide a one-sentence overall verdict. Use these thresholds: 0-1 is Prototype, 2-3 is Development, 4-5 is Production-Ready.
+    ### Strengths: A bulleted list of what the project does well based on the boolean signals. Only list items that are true.
+    ### Gaps: A bulleted list of what is missing. Only list items that are false or absent.
+    Do not add any preamble, conversational text, or conclusions outside of these three subsections.
+  EOT
+}
+
+module "integration_recommendations_agent" {
+  source                  = "./modules/bedrock_agent"
+  agent_name              = "Integration_Recommendations_Agent"
+  agent_resource_role_arn = module.bedrock_agent_role.role_arn
+  foundation_model        = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+  instruction = <<-EOT
+    You are a data engineering architect providing integration guidance. You will receive a JSON object containing repository intelligence data.
+    Your ONLY task is to write a ## Integration Recommendations section in Markdown.
+    Analyze all available fields in the JSON to understand the project's capabilities and maturity.
+    Your response must include exactly these three subsections using ### headers:
+    ### Pipeline Integration Potential: Describe in two to three sentences how this project could fit into a data pipeline. Be specific about whether it would serve as a data source, transformation layer, or serving layer based on what you observe.
+    ### Prerequisites Before Integration: A bulleted list of specific actions that should be completed before integrating this project into a production pipeline. Base these on actual gaps identified in the data such as missing tests, documentation, or CI/CD.
+    ### Recommended Next Steps: A numbered list of three to five concrete, actionable steps ordered by priority for improving this project's production readiness.
+    Do not add any preamble, conversational text, or conclusions outside of these three subsections.
+  EOT
+}
+
+output "technology_assessment_agent_id" {
+  description = "The ID of the Technology Assessment Agent."
+  value       = module.technology_assessment_agent.agent_id
+}
+
+output "maturity_assessment_agent_id" {
+  description = "The ID of the Maturity Assessment Agent."
+  value       = module.maturity_assessment_agent.agent_id
+}
+
+output "integration_recommendations_agent_id" {
+  description = "The ID of the Integration Recommendations Agent."
+  value       = module.integration_recommendations_agent.agent_id
+}
