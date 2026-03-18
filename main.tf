@@ -48,6 +48,11 @@ output "readme_bucket_name" {
   description = "The name of the S3 bucket where README files are stored."
   value       = module.s3_bucket.bucket_id
 }
+
+# -----------------------------------------------
+# LAB 2: Repo Scanner
+# -----------------------------------------------
+
 data "archive_file" "repo_scanner_zip" {
   type        = "zip"
   source_dir  = "${path.root}/src/repo_scanner"
@@ -62,9 +67,9 @@ resource "aws_lambda_function" "repo_scanner_lambda" {
   runtime          = "python3.11"
   timeout          = 30
   source_code_hash = data.archive_file.repo_scanner_zip.output_base64sha256
-
-  layers = ["arn:aws:lambda:us-east-1:553035198032:layer:git-lambda2:8"]
+  layers           = ["arn:aws:lambda:us-east-1:553035198032:layer:git-lambda2:8"]
 }
+
 module "repo_scanner_agent" {
   source                  = "./modules/bedrock_agent"
   agent_name              = "Repo_Scanner_Agent"
@@ -74,10 +79,10 @@ module "repo_scanner_agent" {
 }
 
 resource "aws_bedrockagent_agent_action_group" "repo_scanner_action_group" {
-  agent_id            = module.repo_scanner_agent.agent_id
-  agent_version       = "DRAFT"
-  action_group_name   = "ScanRepoAction"
-  action_group_state  = "ENABLED"
+  agent_id           = module.repo_scanner_agent.agent_id
+  agent_version      = "DRAFT"
+  action_group_name  = "ScanRepoAction"
+  action_group_state = "ENABLED"
 
   action_group_executor {
     lambda = aws_lambda_function.repo_scanner_lambda.arn
@@ -95,6 +100,7 @@ resource "aws_lambda_permission" "allow_bedrock_to_invoke_lambda" {
   principal     = "bedrock.amazonaws.com"
   source_arn    = module.repo_scanner_agent.agent_arn
 }
+
 # -----------------------------------------------
 # ASSIGNMENT: Data Intelligence Platform
 # Labs 1 and 2 Correlation
@@ -151,4 +157,44 @@ resource "aws_lambda_permission" "allow_bedrock_to_invoke_intelligence_lambda" {
 output "intelligence_agent_id" {
   description = "The ID of the Repo Intelligence Agent."
   value       = module.repo_intelligence_agent.agent_id
+}
+
+# -----------------------------------------------
+# LAB 3: Analytical Agents
+# -----------------------------------------------
+
+module "project_summarizer_agent" {
+  source                  = "./modules/bedrock_agent"
+  agent_name              = "Project_Summarizer_Agent"
+  agent_resource_role_arn = module.bedrock_agent_role.role_arn
+  foundation_model        = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+  instruction = <<-EOT
+    You are an expert software developer. Your ONLY task is to analyze the following list of filenames and write a single, concise paragraph summarizing the project's likely purpose.
+    Infer the main programming language and potential frameworks from file extensions and common project file names (e.g., 'pom.xml' implies Java/Maven, 'package.json' implies Node.js).
+    Do not add any preamble or extra text. Only provide the summary paragraph.
+  EOT
+}
+
+module "installation_guide_agent" {
+  source                  = "./modules/bedrock_agent"
+  agent_name              = "Installation_Guide_Agent"
+  agent_resource_role_arn = module.bedrock_agent_role.role_arn
+  foundation_model        = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+  instruction = <<-EOT
+    You are a technical writer. Your ONLY job is to scan the provided list of filenames.
+    If you see a common dependency file like 'requirements.txt', 'package.json', 'pom.xml', or 'go.mod', write a '## Getting Started' section in Markdown that includes the standard command to install dependencies for that file type.
+    If you do not see any recognizable dependency files, respond with the exact text: 'No dependency management file found.'
+  EOT
+}
+
+module "usage_examples_agent" {
+  source                  = "./modules/bedrock_agent"
+  agent_name              = "Usage_Examples_Agent"
+  agent_resource_role_arn = module.bedrock_agent_role.role_arn
+  foundation_model        = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+  instruction = <<-EOT
+    You are a software developer. Your ONLY task is to look at the list of filenames and identify the most likely main script or entry point (e.g., 'main.py', 'index.js', 'app.py').
+    Write a '## Usage' section in Markdown that shows a common command to run the project.
+    For example, if you see 'main.py', suggest 'python main.py'.
+  EOT
 }
