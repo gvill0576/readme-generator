@@ -199,6 +199,7 @@ module "usage_examples_agent" {
   EOT
 }
 # -----------------------------------------------
+<<<<<<< HEAD
 # ASSIGNMENT: Data Intelligence Analytical Agents
 # Day 2 Correlation
 # -----------------------------------------------
@@ -268,4 +269,125 @@ output "maturity_assessment_agent_id" {
 output "integration_recommendations_agent_id" {
   description = "The ID of the Integration Recommendations Agent."
   value       = module.integration_recommendations_agent.agent_id
+=======
+# LAB 4: Final Compiler Agent
+# -----------------------------------------------
+
+module "final_compiler_agent" {
+  source                  = "./modules/bedrock_agent"
+  agent_name              = "Final_Compiler_Agent"
+  agent_resource_role_arn = module.bedrock_agent_role.role_arn
+  foundation_model        = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+  instruction = <<-EOT
+    You are a technical document compiler. Your ONLY task is to take a JSON object containing different sections of a README file (project_summary, installation_guide, and usage_examples) and assemble them into a single, well-formatted Markdown document.
+    Use the repository name for the main H1 header. Use H2 headers for all other sections (e.g., ## Project Summary, ## Installation, ## Usage).
+    Do not add any preamble, apologies, or conversational text. Only return the pure, complete Markdown document.
+  EOT
+}
+# -----------------------------------------------
+# LAB 4: Orchestrator IAM and Lambda
+# -----------------------------------------------
+
+module "orchestrator_execution_role" {
+  source             = "./modules/iam"
+  role_name          = "ReadmeGeneratorOrchestratorExecutionRole"
+  service_principals = ["lambda.amazonaws.com"]
+  policy_arns = [
+    "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+  ]
+}
+
+resource "aws_iam_policy" "orchestrator_permissions" {
+  name        = "ReadmeGeneratorOrchestratorPolicy"
+  description = "Allows Lambda to invoke Bedrock Agents and use the S3 bucket."
+
+  policy = jsonencode({
+    Version   = "2012-10-17",
+    Statement = [
+      {
+        Sid    = "BedrockAgentInvoke"
+        Action = [
+          "bedrock:InvokeAgent",
+          "bedrock-agent-runtime:InvokeAgent"
+        ]
+        Effect   = "Allow"
+        Resource = "*"
+      },
+      {
+        Sid    = "S3BucketOperations"
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:HeadObject"
+        ]
+        Effect   = "Allow"
+        Resource = "${module.s3_bucket.bucket_arn}/*"
+      }
+    ]
+  })
+
+  lifecycle {
+    ignore_changes = [policy]
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "orchestrator_permissions_attach" {
+  role       = module.orchestrator_execution_role.role_name
+  policy_arn = aws_iam_policy.orchestrator_permissions.arn
+}
+
+data "archive_file" "orchestrator_zip" {
+  type        = "zip"
+  source_dir  = "${path.root}/src/orchestrator"
+  output_path = "${path.root}/dist/orchestrator.zip"
+}
+
+resource "aws_lambda_function" "orchestrator_lambda" {
+  function_name    = "ReadmeGeneratorOrchestrator"
+  role             = module.orchestrator_execution_role.role_arn
+  filename         = data.archive_file.orchestrator_zip.output_path
+  handler          = "lambda_function.handler"
+  runtime          = "python3.11"
+  timeout          = 180
+  source_code_hash = data.archive_file.orchestrator_zip.output_base64sha256
+
+  environment {
+    variables = {
+      REPO_SCANNER_AGENT_ID             = module.repo_scanner_agent.agent_id
+      REPO_SCANNER_AGENT_ALIAS_ID       = "TSTALIASID"
+      PROJECT_SUMMARIZER_AGENT_ID       = module.project_summarizer_agent.agent_id
+      PROJECT_SUMMARIZER_AGENT_ALIAS_ID = "TSTALIASID"
+      INSTALLATION_GUIDE_AGENT_ID       = module.installation_guide_agent.agent_id
+      INSTALLATION_GUIDE_AGENT_ALIAS_ID = "TSTALIASID"
+      USAGE_EXAMPLES_AGENT_ID           = module.usage_examples_agent.agent_id
+      USAGE_EXAMPLES_AGENT_ALIAS_ID     = "TSTALIASID"
+      FINAL_COMPILER_AGENT_ID           = module.final_compiler_agent.agent_id
+      FINAL_COMPILER_AGENT_ALIAS_ID     = "TSTALIASID"
+      OUTPUT_BUCKET                     = module.s3_bucket.bucket_id
+    }
+  }
+}
+# -----------------------------------------------
+# LAB 4: S3 Event Trigger
+# -----------------------------------------------
+
+resource "aws_lambda_permission" "allow_s3_to_invoke_orchestrator" {
+  statement_id  = "AllowS3ToInvokeOrchestratorLambda"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.orchestrator_lambda.function_name
+  principal     = "s3.amazonaws.com"
+  source_arn    = module.s3_bucket.bucket_arn
+}
+
+resource "aws_s3_bucket_notification" "bucket_notification" {
+  bucket = module.s3_bucket.bucket_id
+
+  lambda_function {
+    lambda_function_arn = aws_lambda_function.orchestrator_lambda.arn
+    events              = ["s3:ObjectCreated:*"]
+    filter_prefix       = "inputs/"
+  }
+
+  depends_on = [aws_lambda_permission.allow_s3_to_invoke_orchestrator]
+>>>>>>> main
 }
