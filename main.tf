@@ -199,7 +199,7 @@ module "usage_examples_agent" {
   EOT
 }
 # -----------------------------------------------
-<<<<<<< HEAD
+# -----------------------------------------------
 # ASSIGNMENT: Data Intelligence Analytical Agents
 # Day 2 Correlation
 # -----------------------------------------------
@@ -269,7 +269,9 @@ output "maturity_assessment_agent_id" {
 output "integration_recommendations_agent_id" {
   description = "The ID of the Integration Recommendations Agent."
   value       = module.integration_recommendations_agent.agent_id
-=======
+}
+
+# -----------------------------------------------
 # LAB 4: Final Compiler Agent
 # -----------------------------------------------
 
@@ -284,6 +286,7 @@ module "final_compiler_agent" {
     Do not add any preamble, apologies, or conversational text. Only return the pure, complete Markdown document.
   EOT
 }
+
 # -----------------------------------------------
 # LAB 4: Orchestrator IAM and Lambda
 # -----------------------------------------------
@@ -367,6 +370,7 @@ resource "aws_lambda_function" "orchestrator_lambda" {
     }
   }
 }
+
 # -----------------------------------------------
 # LAB 4: S3 Event Trigger
 # -----------------------------------------------
@@ -375,6 +379,49 @@ resource "aws_lambda_permission" "allow_s3_to_invoke_orchestrator" {
   statement_id  = "AllowS3ToInvokeOrchestratorLambda"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.orchestrator_lambda.function_name
+  principal     = "s3.amazonaws.com"
+  source_arn    = module.s3_bucket.bucket_arn
+}
+
+# -----------------------------------------------
+# ASSIGNMENT: Data Intelligence Report Orchestrator
+# Day 3 Correlation
+# -----------------------------------------------
+
+data "archive_file" "intelligence_orchestrator_zip" {
+  type        = "zip"
+  source_dir  = "${path.root}/src/intelligence_orchestrator"
+  output_path = "${path.root}/dist/intelligence_orchestrator.zip"
+}
+
+resource "aws_lambda_function" "intelligence_orchestrator_lambda" {
+  function_name    = "DataIntelligenceOrchestrator"
+  role             = module.orchestrator_execution_role.role_arn
+  filename         = data.archive_file.intelligence_orchestrator_zip.output_path
+  handler          = "lambda_function.handler"
+  runtime          = "python3.11"
+  timeout          = 300
+  source_code_hash = data.archive_file.intelligence_orchestrator_zip.output_base64sha256
+
+  environment {
+    variables = {
+      REPO_INTELLIGENCE_AGENT_ID                 = module.repo_intelligence_agent.agent_id
+      REPO_INTELLIGENCE_AGENT_ALIAS_ID           = "TSTALIASID"
+      TECHNOLOGY_ASSESSMENT_AGENT_ID             = module.technology_assessment_agent.agent_id
+      TECHNOLOGY_ASSESSMENT_AGENT_ALIAS_ID       = "TSTALIASID"
+      MATURITY_ASSESSMENT_AGENT_ID               = module.maturity_assessment_agent.agent_id
+      MATURITY_ASSESSMENT_AGENT_ALIAS_ID         = "TSTALIASID"
+      INTEGRATION_RECOMMENDATIONS_AGENT_ID       = module.integration_recommendations_agent.agent_id
+      INTEGRATION_RECOMMENDATIONS_AGENT_ALIAS_ID = "TSTALIASID"
+      OUTPUT_BUCKET                              = module.s3_bucket.bucket_id
+    }
+  }
+}
+
+resource "aws_lambda_permission" "allow_s3_to_invoke_intelligence_orchestrator" {
+  statement_id  = "AllowS3ToInvokeIntelligenceOrchestrator"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.intelligence_orchestrator_lambda.function_name
   principal     = "s3.amazonaws.com"
   source_arn    = module.s3_bucket.bucket_arn
 }
@@ -388,6 +435,14 @@ resource "aws_s3_bucket_notification" "bucket_notification" {
     filter_prefix       = "inputs/"
   }
 
-  depends_on = [aws_lambda_permission.allow_s3_to_invoke_orchestrator]
->>>>>>> main
+  lambda_function {
+    lambda_function_arn = aws_lambda_function.intelligence_orchestrator_lambda.arn
+    events              = ["s3:ObjectCreated:*"]
+    filter_prefix       = "intelligence-inputs/"
+  }
+
+  depends_on = [
+    aws_lambda_permission.allow_s3_to_invoke_orchestrator,
+    aws_lambda_permission.allow_s3_to_invoke_intelligence_orchestrator
+  ]
 }
