@@ -226,10 +226,12 @@ module "technology_assessment_agent" {
 
     GOAL: Analyze the provided JSON repository intelligence data and write a ## Technology Assessment section in Markdown.
 
+    STRICT AUDITOR RULE: You must ONLY use the data explicitly present in the provided JSON to generate your assessment. Do NOT use your internal knowledge about common libraries or frameworks to fill in gaps. If a detail is not explicitly found in the provided JSON data, do NOT include it. If information for a subsection is missing from the data, state 'Information not found in source data' for that subsection.
+
     CONSTRAINTS:
     - Analyze ONLY these fields: extension_breakdown, category_breakdown, detected_de_technologies, top_level_directories.
     - Do NOT include any preamble, introduction, or conclusion outside the four required subsections.
-    - Do NOT use uncertain language like 'appears to be' or 'might be'. State facts directly.
+    - Do NOT use uncertain language like 'appears to be' or 'might be'. State facts directly from the data.
     - Do NOT add any text after the final subsection.
 
     OUTPUT FORMAT: Your response MUST contain exactly these four subsections using ### headers. For example:
@@ -262,11 +264,13 @@ module "maturity_assessment_agent" {
 
     GOAL: Analyze the provided JSON repository intelligence data and write a ## Maturity Assessment section in Markdown.
 
+    STRICT AUDITOR RULE: You must ONLY use the data explicitly present in the provided JSON to generate your assessment. Do NOT use your internal knowledge about software engineering practices to fill in gaps. If a boolean field is not present in the JSON, do NOT assume its value. If information for a subsection cannot be determined from the data, state 'Information not found in source data' for that subsection.
+
     CONSTRAINTS:
     - Analyze ONLY these fields: project_maturity_score, maturity_out_of, has_tests, has_ci_cd_pipeline, has_documentation, category_breakdown.
     - Apply EXACTLY these thresholds: 0-1 is Prototype, 2-3 is Development, 4-5 is Production-Ready.
-    - Under Strengths list ONLY items where the boolean value is true. Do NOT list false items as strengths.
-    - Under Gaps list ONLY items where the boolean value is false or absent. Do NOT list true items as gaps.
+    - Under Strengths list ONLY items where the boolean value is explicitly true in the JSON. Do NOT infer strengths from file names or your training knowledge.
+    - Under Gaps list ONLY items where the boolean value is explicitly false or absent in the JSON. Do NOT infer gaps from your training knowledge.
     - Do NOT include any preamble, introduction, or conclusion outside the three required subsections.
 
     OUTPUT FORMAT: Your response MUST contain exactly these three subsections using ### headers. For example:
@@ -297,9 +301,11 @@ module "integration_recommendations_agent" {
 
     GOAL: Analyze the provided JSON repository intelligence data and write a ## Integration Recommendations section in Markdown.
 
+    STRICT AUDITOR RULE: You must ONLY use the data explicitly present in the provided JSON to generate your recommendations. Do NOT use your internal knowledge about the project's technology stack or common practices to fill in gaps. Every recommendation in Prerequisites and Next Steps must reference a specific field or value found in the provided JSON. If a recommendation cannot be grounded in explicit evidence from the data, do NOT include it. If information for a subsection is missing, state 'Information not found in source data'.
+
     CONSTRAINTS:
-    - Base ALL recommendations on actual evidence from the JSON data. Do NOT make generic recommendations.
-    - Prerequisites must reference specific gaps identified in the data, not general best practices.
+    - Base ALL recommendations on explicit evidence from the JSON data fields. Do NOT make generic recommendations.
+    - Every prerequisite must cite a specific gap found in the JSON boolean fields or category counts.
     - Next Steps must be numbered and ordered by priority with the highest priority first.
     - Do NOT include any preamble, introduction, or conclusion outside the three required subsections.
     - Do NOT add conversational text like 'I hope this helps' or 'Feel free to ask'.
@@ -312,8 +318,8 @@ module "integration_recommendations_agent" {
     This project functions as an upstream data ingestion layer. It would serve as a data source component feeding structured document data to downstream analytics or serving layers.
 
     ### Prerequisites Before Integration
-    - Add comprehensive documentation including architecture diagrams and API contracts
-    - Expand test coverage beyond the single retriever test to include ingestion and loading modules
+    - Add comprehensive documentation: has_documentation is false in the source data
+    - Expand test coverage: only 1 test file detected in the source data scan
     - Implement configuration management to externalize database connections and file paths
 
     ### Recommended Next Steps
