@@ -1,0 +1,60 @@
+name: Deploy and Run Data Intelligence Platform
+
+on:
+  push:
+    branches:
+      - assignment/week23-data-intelligence
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve
+
+      - name: Trigger Data Intelligence Pipeline
+        run: |
+          echo "Triggering Data Intelligence Report Generation..."
+          BUCKET_NAME=$(terraform output -raw readme_bucket_name)
+          ENCODED="https---github.com-TruLie13-municipal-ai"
+          touch ${ENCODED}
+          aws s3 cp ${ENCODED} s3://${BUCKET_NAME}/intelligence-inputs/${ENCODED}
+          rm ${ENCODED}
+          echo "Intelligence pipeline triggered for municipal-ai repository."
+
+      - name: Verify Report Generation
+        run: |
+          echo "Waiting for report generation to complete..."
+          sleep 120
+          BUCKET_NAME=$(terraform output -raw readme_bucket_name)
+          TODAY=$(date +%Y-%m-%d)
+          if aws s3 ls s3://${BUCKET_NAME}/intelligence-reports/${TODAY}/municipal-ai/intelligence_report.md; then
+            echo "SUCCESS: Intelligence report generated successfully"
+            aws s3 cp s3://${BUCKET_NAME}/intelligence-reports/${TODAY}/municipal-ai/intelligence_report.md ./latest_report.md
+            echo "Report preview:"
+            head -30 latest_report.md
+          else
+            echo "WARNING: Report not found at expected path. Check CloudWatch logs."
+          fi
