@@ -333,3 +333,33 @@ resource "aws_s3_bucket_notification" "bucket_notification" {
 
   depends_on = [aws_lambda_permission.allow_s3_to_invoke_orchestrator]
 }
+# -----------------------------------------------
+# LAB 6: Remote State Backend Resources
+# -----------------------------------------------
+
+resource "random_string" "state_bucket_suffix" {
+  length  = 8
+  special = false
+  upper   = false
+}
+
+resource "aws_s3_bucket" "terraform_state" {
+  bucket = "tf-readme-generator-state-${random_string.state_bucket_suffix.result}"
+}
+
+resource "aws_dynamodb_table" "terraform_locks" {
+  name         = "readme-generator-tf-locks"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "LockID"
+
+  attribute {
+    name = "LockID"
+    type = "S"
+  }
+}
+
+output "terraform_state_bucket_name" {
+  description = "The name of the S3 bucket for the Terraform state."
+  value       = aws_s3_bucket.terraform_state.bucket
+}
+
